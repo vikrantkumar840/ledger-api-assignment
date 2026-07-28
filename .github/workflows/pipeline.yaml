@@ -58,7 +58,7 @@ jobs:
           exit-code: "1"
           ignore-unfixed: false
           skip-dirs: task1-hardening/starter-original-deploy
-          trivyignores: .trivyignore
+          
 
   build-scan-sign:
     runs-on: ubuntu-latest
