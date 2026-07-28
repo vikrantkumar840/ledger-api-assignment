@@ -39,10 +39,14 @@ spec:
             requests: { cpu: "50m", memory: "64Mi" }
             limits: { cpu: "200m", memory: "128Mi" }
           livenessProbe:
-            httpGet: { path: /
+            httpGet:
+              path: /
+              port: 8080
             initialDelaySeconds: 5
           readinessProbe:
-            httpGet: { path: /
+            httpGet:
+              path: /
+              port: 8080
             initialDelaySeconds: 3
           volumeMounts:
             - name: tmp
