@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-api
+  namespace: ledger
+  labels:
+    app: ledger-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ledger-api
+  template:
+    metadata:
+      labels:
+        app: ledger-api
+    spec:
+      serviceAccountName: ledger-api-sa
+      automountServiceAccountToken: false
+      securityContext:                     # Pod-level
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ledger-api
+          image: ghcr.io/bhabani-dodo/ledger-api:1.0.0   # pinned digest in real deploy, never :latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: ledger-api-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ledger-api-secrets
+                  key: DB_PASSWORD
+          securityContext:                 # Container-level
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp             # writable scratch space since rootfs is RO
+      volumes:
+        - name: tmp
+          emptyDir: {}

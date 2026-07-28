@@ -1,0 +1,27 @@
+# DO NOT deploy this to production — kept only to demonstrate that Kyverno
+# rejects it. Run: kubectl apply -f original-insecure-deployment.yaml --dry-run=server
+# and capture the denial message for your evidence screenshots.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-api-insecure-demo
+  namespace: ledger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ledger-api-insecure-demo
+  template:
+    metadata:
+      labels:
+        app: ledger-api-insecure-demo
+    spec:
+      containers:
+        - name: ledger-api
+          image: ghcr.io/bhabani-dodo/ledger-api:latest   # violation: :latest
+          securityContext:
+            runAsUser: 0                                   # violation: root
+            privileged: true
+            readOnlyRootFilesystem: false                  # violation
+            capabilities:
+              add: ["ALL"]                                  # violation

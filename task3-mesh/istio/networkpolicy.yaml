@@ -1,0 +1,54 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: ledger
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress", "Egress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-notification-to-ledger-api
+  namespace: ledger
+spec:
+  podSelector:
+    matchLabels:
+      app: ledger-api
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: notification-svc
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: ledger
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+# Layering rationale (put this in your README too):
+# - NetworkPolicy operates at L3/L4 (IP + port). It stops raw packets from
+#   reaching a pod at all — even from a compromised node's non-mesh process,
+#   or before a sidecar is even injected. It has NO concept of identity beyond pod labels.
+# - Istio AuthorizationPolicy operates at L7, keyed on cryptographic workload
+#   identity (SPIFFE via mTLS cert), independent of IP. It stops a request that
+#   *did* reach the pod's network but isn't from an authorized principal, and it
+#   also lets you gate by HTTP method/path, not just port.
+# - Together: NetworkPolicy is the outer wall (nothing gets near the socket),
+#   AuthorizationPolicy is the inner door (only the right cryptographic identity
+#   gets through, doing only the allowed actions).

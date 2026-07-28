@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ledger-api
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/bhabani-dodo/ledger-gitops.git
+    targetRevision: main
+    path: apps/ledger-api
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ledger
+  syncPolicy:
+    automated:
+      prune: true       # remove resources deleted from git
+      selfHeal: true    # revert any manual kubectl edit back to git state
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+
+# Demo of drift detection + self-heal for your screenshots:
+#   kubectl scale deployment ledger-api -n ledger --replicas=10   # manual drift
+#   argocd app get ledger-api                                     # shows OutOfSync
+#   # within seconds, selfHeal reverts replicas back to the git-defined count

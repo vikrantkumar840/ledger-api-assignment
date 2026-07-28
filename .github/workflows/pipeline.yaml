@@ -1,0 +1,147 @@
+name: secure-build-sign-deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write        # push to GHCR
+  id-token: write        # OIDC for keyless cosign signing
+  security-events: write  # upload SARIF to Security tab
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/ledger-api
+
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # HARD BLOCK: any verified secret fails the job -> pipeline stops here
+
+  sast:
+    runs-on: ubuntu-latest
+    needs: secrets-scan
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep SAST
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: p/owasp-top-ten
+          generateSarif: "1"
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+        # POLICY: High/Critical findings hard-block (semgrep-action exits non-zero by default).
+        # Medium/Low are uploaded to the Security tab as warnings, do not block.
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    needs: secrets-scan
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem/dependency scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"          # HARD BLOCK on Critical/High with a known fix
+          ignore-unfixed: false   # see policy note below
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+        # POLICY — CVE with no fix available:
+        # Re-run with `ignore-unfixed: true` in a second step that is allowed to pass,
+        # and require a manually reviewed waiver entry in `.trivyignore` with:
+        #   - CVE id, justification, compensating control, and a re-scan-by date.
+        # An unreviewed CVE (no waiver entry) still hard-blocks.
+
+  build-scan-sign:
+    runs-on: ubuntu-latest
+    needs: [sast, dependency-scan]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        run: |
+          docker build -t ${IMAGE}:${{ github.sha }} .
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ env.IMAGE }}:${{ github.sha }}"
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"     # HARD BLOCK
+      - name: Upload image scan SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+
+      - name: Push image
+        run: docker push ${IMAGE}:${{ github.sha }}
+
+      - name: Sign image (keyless, OIDC)
+        run: |
+          cosign sign --yes ${IMAGE}@$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE}:${{ github.sha }} | cut -d@ -f2)
+
+      - name: Generate SLSA provenance attestation
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
+        with:
+          image: ${{ env.IMAGE }}
+          digest: ${{ github.sha }}
+          registry-username: ${{ github.actor }}
+        secrets:
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify signature (sanity check in-pipeline)
+        run: |
+          cosign verify ${IMAGE}:${{ github.sha }} \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.*" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+  update-gitops-manifest:
+    runs-on: ubuntu-latest
+    needs: build-scan-sign
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/ledger-gitops   # separate GitOps repo, source of truth for ArgoCD
+          token: ${{ secrets.GITOPS_PAT }}
+      - name: Bump image tag
+        run: |
+          sed -i "s|image: .*ledger-api:.*|image: ${IMAGE}:${{ github.sha }}|" apps/ledger-api/deployment.yaml
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@dodopayments.tech"
+          git commit -am "ci: bump ledger-api to ${{ github.sha }}"
+          git push
+        # ArgoCD watches this repo and auto-syncs -> GitOps, not kubectl apply from CI
+

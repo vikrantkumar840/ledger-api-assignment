@@ -1,0 +1,123 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-root-user
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-runasnonroot
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "Containers must not run as root (runAsNonRoot: true required)."
+        pattern:
+          spec:
+            =(securityContext):
+              =(runAsNonRoot): "true"
+            containers:
+              - =(securityContext):
+                  =(runAsNonRoot): "true"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-image-tag
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "Image tag ':latest' is not allowed. Use an immutable, pinned tag or digest."
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ contains(element.image, ':latest') }}"
+                    operator: Equals
+                    value: true
+                  - key: "{{ contains(element.image, ':') }}"
+                    operator: Equals
+                    value: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-signature
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: check-cosign-signature
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/bhabani-dodo/*"
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    subject: "https://github.com/bhabani-dodo/*"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-drop-all-capabilities
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: drop-all-caps
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "All Linux capabilities must be dropped (capabilities.drop: [ALL])."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  capabilities:
+                    drop: ["ALL"]
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-readonly-rootfs
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: readonly-rootfs
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "Containers must set readOnlyRootFilesystem: true."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  readOnlyRootFilesystem: true
+
+# --- Proof of enforcement (for your README / screenshots) ---
+# 1. Try applying the ORIGINAL insecure ledger-api deployment (root, :latest, no caps drop):
+#      kubectl apply -f original-insecure-deployment.yaml
+#    Expect: admission webhook denies with the messages above — screenshot this.
+# 2. Then apply the hardened deployment-ledger-api.yaml — it should succeed.

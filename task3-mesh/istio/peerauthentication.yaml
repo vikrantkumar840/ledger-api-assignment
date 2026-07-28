@@ -1,0 +1,17 @@
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: ledger
+spec:
+  mtls:
+    mode: STRICT
+
+# Prove a plaintext request is refused:
+#   kubectl run curl-plain --rm -it --image=curlimages/curl -n ledger -- \
+#     curl -v http://ledger-api.ledger.svc.cluster.local
+#   -> connection reset / 503 (no plaintext sidecar accepts it)
+#
+# Check mesh-wide TLS posture:
+#   istioctl authn tls-check ledger-api.ledger.svc.cluster.local
+#   -> STATUS column should read STRICT for all pods

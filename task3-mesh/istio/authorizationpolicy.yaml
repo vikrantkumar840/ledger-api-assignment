@@ -1,0 +1,50 @@
+# 1. Default-deny for the whole namespace
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny-all
+  namespace: ledger
+spec:
+  {}   # empty spec + no selector = deny-all for every workload in this namespace
+
+---
+# 2. Explicit allow: notification-svc -> ledger-api, keyed on SPIFFE identity (ServiceAccount), not IP
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-notification-to-ledger-api
+  namespace: ledger
+spec:
+  selector:
+    matchLabels:
+      app: ledger-api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/ledger/sa/neighbour-sa"]
+      to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/api/*"]
+
+---
+# 3. Explicit allow: ingress gateway -> ledger-api (for external traffic)
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-to-ledger-api
+  namespace: ledger
+spec:
+  selector:
+    matchLabels:
+      app: ledger-api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+
+# Demo: an "unauthorised-svc" with its own ServiceAccount (no rule granting it access)
+# gets RBAC: access denied when it curls ledger-api — screenshot the 403.
+# notification-svc successfully reaching ledger-api proves the explicit allow works.

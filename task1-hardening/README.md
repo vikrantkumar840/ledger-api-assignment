@@ -31,3 +31,4 @@ kubectl apply -f manifests/deployment-ledger-api.yaml
 
 ## RBAC scoping rationale
 `ledger-api-sa` can only `get` its own named ConfigMap — nothing else, no token automount since the app never talks to the K8s API. This limits blast radius if the container is ever compromised: an attacker inside the pod cannot list secrets, other configmaps, or any cluster resource.
+

@@ -1,0 +1,46 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: ledger-gateway
+  namespace: ledger
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port: { number: 443, name: https, protocol: HTTPS }
+      tls:
+        mode: SIMPLE
+        credentialName: ledger-api-tls-cert   # kubectl create secret tls in istio-system
+      hosts: ["ledger-api.local"]
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: ledger-api-dr
+  namespace: ledger
+spec:
+  host: ledger-api.ledger.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  subsets:
+    - name: stable
+      labels: { version: stable }
+    - name: canary
+      labels: { version: canary }
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: ledger-api-vs
+  namespace: ledger
+spec:
+  hosts: ["ledger-api.local"]
+  gateways: ["ledger-gateway"]
+  http:
+    - route:
+        - destination: { host: ledger-api.ledger.svc.cluster.local, subset: stable }
+          weight: 90
+        - destination: { host: ledger-api.ledger.svc.cluster.local, subset: canary }
+          weight: 10
+# Shift weight 90/10 -> 50/50 -> 0/100 as you gain confidence in the canary.
