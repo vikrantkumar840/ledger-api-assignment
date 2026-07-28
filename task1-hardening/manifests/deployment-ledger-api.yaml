@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ledger-api
-          image: ghcr.io/vikrantkumar840/ledger-api@sha256:8ab9b25a7899dde82f03dd19e4f995d2a0cdae71d6e1d3c931d757b4b1f9d8f6
+          image: ghcr.io/vikrantkumar840/ledger-api@sha256:a9541cf59a50c2bc49ef6aa65916ad8c08aa3f7e666bce68bb5ebbd16c9d2171
           ports:
             - containerPort: 8080
           envFrom:
