@@ -63,12 +63,12 @@ spec:
               kinds: ["Pod"]
       verifyImages:
         - imageReferences:
-            - "ghcr.io/bhabani-dodo/*"
+            - "ghcr.io/vikrantkumar840/ledger-api*"
           attestors:
             - count: 1
               entries:
                 - keyless:
-                    subject: "https://github.com/bhabani-dodo/*"
+                    subject: "https://github.com/vikrantkumar840/*"
                     issuer: "https://token.actions.githubusercontent.com"
                     rekor:
                       url: https://rekor.sigstore.dev
