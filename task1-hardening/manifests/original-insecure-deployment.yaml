@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: ledger-api
-          image: ghcr.io/bhabani-dodo/ledger-api:latest   # violation: :latest
+          image: ghcr.io/vikrantkumar840/ledger-api:latest # violation: :latest
           securityContext:
             runAsUser: 0                                   # violation: root
             privileged: true
