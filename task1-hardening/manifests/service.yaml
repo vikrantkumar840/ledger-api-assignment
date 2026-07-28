@@ -20,4 +20,4 @@ spec:
     app: notification-svc
   ports:
     - port: 80
-      targetPort: 8081
+      targetPort: 8080

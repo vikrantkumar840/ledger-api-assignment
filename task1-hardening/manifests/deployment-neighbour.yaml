@@ -27,7 +27,7 @@ spec:
         - name: notification-svc
           image: nginxinc/nginx-unprivileged:1.27
           ports:
-            - containerPort: 8081
+            - containerPort: 8080
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
