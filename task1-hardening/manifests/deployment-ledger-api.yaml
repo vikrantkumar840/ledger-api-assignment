@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ledger-api
-          image: ledger-api-test:latest   # pinned digest in real deploy, never :latest
+          image: ledger-api-test:v1   # pinned digest in real deploy, never :latest
           imagePullPolicy: Never
           ports:
             - containerPort: 8080
