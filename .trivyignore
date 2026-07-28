@@ -2,3 +2,30 @@
 # Task 1's README — not a live deployment. Its plaintext secret is the exact
 # vulnerability Task 1 fixes, so it's expected to trip secret-scanning here.
 task1-hardening/starter-original-deploy/deployment.yaml
+# Waiver: Debian 13 base-image OS packages with no upstream fix available as of
+# 2026-07-29 (confirmed via Trivy's empty "Fixed Version" column). None of these
+# packages (perl, gzip, util-linux, ncurses, acl) are invoked by ledger-api's
+# Flask application code or its dependency tree — they ship as part of the
+# python:3.12-slim base image only.
+#
+# Compensating controls already in place (see task1-hardening/):
+#   - readOnlyRootFilesystem: true (no write access even if a package were exploited)
+#   - capabilities.drop: [ALL] + non-root UID 10001 (no privilege to exploit setuid/setgid paths)
+#   - NetworkPolicy default-deny + Istio mTLS STRICT (limits blast radius / lateral movement)
+#
+# Re-scan-by date: 2026-08-28 (30 days). Re-run Trivy against a freshly pulled
+# python:3.12-slim at that date; remove any line below whose CVE now has a fix.
+
+CVE-2026-53615 exp:2026-08-28
+CVE-2026-41992 exp:2026-08-28
+CVE-2026-54369 exp:2026-08-28
+CVE-2025-69720 exp:2026-08-28
+CVE-2026-13221 exp:2026-08-28
+CVE-2026-42496 exp:2026-08-28
+CVE-2026-57433 exp:2026-08-28
+CVE-2026-8376 exp:2026-08-28
+CVE-2026-42497 exp:2026-08-28
+CVE-2026-48962 exp:2026-08-28
+CVE-2026-57432 exp:2026-08-28
+CVE-2026-9538 exp:2026-08-28
+
