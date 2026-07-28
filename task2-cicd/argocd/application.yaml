@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/bhabani-dodo/ledger-gitops.git
+    repoURL: https://github.com/vikrantkumar840/ledger-api-assignment.git
     targetRevision: main
-    path: apps/ledger-api
+    path: task1-hardening/manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: ledger
