@@ -1,0 +1,4 @@
+# Intentionally-insecure starter file kept only as a before/after reference for
+# Task 1's README — not a live deployment. Its plaintext secret is the exact
+# vulnerability Task 1 fixes, so it's expected to trip secret-scanning here.
+task1-hardening/starter-original-deploy/deployment.yaml
