@@ -3,3 +3,5 @@ __pycache__/
 .env
 .DS_Store
 *.log
+istio-1.30.3/
+*.json
