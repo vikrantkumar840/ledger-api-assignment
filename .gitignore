@@ -5,3 +5,5 @@ __pycache__/
 *.log
 istio-1.30.3/
 *.json
+istio-1.30.3/
+task4-recon-pentest/subs_raw.json
