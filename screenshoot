@@ -1,0 +1,15 @@
+list of photo:-
+
+task1-01-kyverno-reject.png
+task1-02-sealed-secret.png
+task2-01-pipeline-green.png
+task2-02-cosign-verify.png
+task2-03-security-tab.png
+task2-04-argocd-synced.png
+task3-01-proxy-status.png
+task3-02-mtls-strict.png
+task3-03-authz-403-200.png
+task4-01-yaml-deser.png
+task4-02-ssrf-external.png
+task4-03-ssrf-blocked.png
+task4-04-pan-exposure.png
